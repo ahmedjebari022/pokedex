@@ -62,3 +62,25 @@ func catchPokemon(name string,pokemonMap map[string]pokemonInfo)error{
 
 
 }
+
+func getPokemonInfo(name string,pokemonMap map[string]pokemonInfo)error{
+
+	val, ok := pokemonMap[name]
+	if ok {
+		fmt.Printf("Name:%s\n",val.Name)
+		fmt.Printf("Height:%d\n",val.Height)
+		fmt.Printf("Weight:%d\n",val.Weight)
+		fmt.Printf("Types:\n")
+		for _,v := range val.Types{
+			fmt.Printf("-%s\n",v.Type.Name)
+		}
+		fmt.Printf("Stats:\n")
+		for _,v := range val.Stats{
+			fmt.Printf("-%s: %d\n",v.Stat.Name,v.BaseStat)
+		}
+		return nil
+	}
+	fmt.Printf("you have not caught that pokemon\n")
+	return nil
+
+}

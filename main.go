@@ -75,6 +75,12 @@ func main(){
 					if err != nil {
 						break
 					}
+				}else if err.Error() == "inspect"{
+					err := getPokemonInfo(argument,pokeMap)
+					if err != nil {
+						break
+					}
+					
 				}
 			}
 		}
@@ -110,6 +116,9 @@ func commandExplore(name string)error{
 func commandCatch(name string)error{
 	fmt.Printf("Throwing a Pokeball at %s...\n",name)
 	return fmt.Errorf("catch")
+}
+func commandInspect(name string)error{
+	return fmt.Errorf("inspect")
 }
 
 
@@ -189,9 +198,11 @@ func getPokemonsFromLocation(area string,cache *pokecache.Cache)(pokemon,error){
 	if err != nil {
 		return pokemon{},err
 	}
-
 	return pokemons,nil
 }
+
+
+
 type pokemon struct{
 	PokemonEncounters []struct {
 		Pokemon struct{
@@ -200,9 +211,6 @@ type pokemon struct{
 		} `json:"pokemon"`
 	} `json:"pokemon_encounters"`
 }
-
-
-
 
 type location struct{
 	Count 	int `json:"count"`
@@ -244,5 +252,6 @@ func initCliCommands(){
 	supportedCommands["bmap"] = cliCommand{name:"bmap",description:"Display the previous 20 locations",callback:commandBMap,conf:initConfig}
 	supportedCommands["explore"] = cliCommand{name:"explore",description:"Display pokemons of an area",callback:commandExplore} 
 	supportedCommands["catch"] = cliCommand{name:"catch",description:"Catching a pokemon",callback:commandCatch}
+	supportedCommands["inspect"] = cliCommand{name:"inspect",description:"Inspect the stats of a pokemon",callback:commandInspect}
 }
 
