@@ -18,7 +18,7 @@ func main(){
 	exit := false
 	scanner := bufio.NewScanner(os.Stdin)
 	cache := pokecache.NewCache(5*time.Second)
-
+	pokeMap := make(map[string]pokemonInfo)
 	for !exit {
 		fmt.Print("Pokedex >")
 		if !scanner.Scan(){
@@ -70,6 +70,11 @@ func main(){
 					for _,p := range pokemons.PokemonEncounters{
 						fmt.Printf("- %s\n",p.Pokemon.Name)
 					} 
+				}else if err.Error() == "catch"{
+					err := catchPokemon(argument,pokeMap)
+					if err != nil {
+						break
+					}
 				}
 			}
 		}
@@ -102,6 +107,13 @@ func commandExplore(name string)error{
 	fmt.Printf("Found Pokemon:\n")
 	return fmt.Errorf("explore")
 }
+func commandCatch(name string)error{
+	fmt.Printf("Throwing a Pokeball at %s...\n",name)
+	return fmt.Errorf("catch")
+}
+
+
+
 
 
 func getLocations(mapCommand *cliCommand,cache *pokecache.Cache)(location,error){
@@ -187,8 +199,8 @@ type pokemon struct{
 			URL string `json:"url"`
 		} `json:"pokemon"`
 	} `json:"pokemon_encounters"`
-
 }
+
 
 
 
@@ -231,5 +243,6 @@ func initCliCommands(){
 	supportedCommands["map"] = cliCommand{name:"map",description:"Display the next 20 locations",callback:commandMap,conf:initConfig}
 	supportedCommands["bmap"] = cliCommand{name:"bmap",description:"Display the previous 20 locations",callback:commandBMap,conf:initConfig}
 	supportedCommands["explore"] = cliCommand{name:"explore",description:"Display pokemons of an area",callback:commandExplore} 
+	supportedCommands["catch"] = cliCommand{name:"catch",description:"Catching a pokemon",callback:commandCatch}
 }
 
