@@ -7,10 +7,8 @@ import (
 	"io"
 	"log"
 	"net/http"
-	
 	"os"
 	"time"
-
 	"github.com/ahmedjebari022/pokedex/pokecache"
 )
 
@@ -33,43 +31,54 @@ func main(){
 		input := cleanInput(scanner.Text())
 		
 		for key,ele := range supportedCommands{
-			for _,i := range input{
-				if i == key{
-					err = ele.callback("canalave-city-area")
-					if err == nil {
-						fmt.Println("Unknown command")
-					}
-					
-					if err.Error() == "exit"{
-						os.Exit(0)
-					}else if err.Error() == "map" {
-						mapCommand := supportedCommands["map"]
-						locations, err := getLocations(&mapCommand,cache)
-						if err != nil{
+			if input[0] == key{
+				argument := ""
+				if len(input) > 1{
+					argument = input[1]
+				}
+				err := ele.callback(argument)
+				if err == nil {
+					fmt.Printf("Unknown command")
+				}
+				if err.Error() == "exit"{
+					os.Exit(0)
+				}else if err.Error() == "map"{
+					mapCommand := supportedCommands["map"]
+					locations, err := getLocations(&mapCommand,cache)
+					if err != nil{
 							break
 						}
-						for _, v := range locations.Results {
-							fmt.Printf("%s \n",v.Name)
-						}
-					}else if err.Error() == "bmap" {
-						bmapCommand := supportedCommands["bmap"]
-						locations, err := getLocations(&bmapCommand,cache)
-						if err != nil{
-							fmt.Printf("%v\n",err)
-							break
-						}
-						for _, v := range locations.Results {
-							fmt.Printf("%s \n",v.Name)
-						}
+					for _, v := range locations.Results {
+						fmt.Printf("%s \n",v.Name)
 					}
+				}else if err.Error() == "bmap" {
+					bmapCommand := supportedCommands["bmap"]
+					locations, err := getLocations(&bmapCommand,cache)
+					if err != nil{
+						fmt.Printf("%v\n",err)
+						break
+					}
+					for _, v := range locations.Results {
+						fmt.Printf("%s \n",v.Name)
+					}	
+				}else if err.Error() == "explore" {
+				
+					pokemons, err := getPokemonsFromLocation(argument,cache)
+					if err != nil {
+						fmt.Printf("%v\n",err)
+					}
+					for _,p := range pokemons.PokemonEncounters{
+						fmt.Printf("- %s\n",p.Pokemon.Name)
+					} 
 				}
 			}
 		}
+	}}
 
-				
 
-	} 
-}
+
+
+
 
 func commandExit(name string)error{
 	fmt.Println("Closing the Pokedex... Goodbye!")
@@ -91,16 +100,6 @@ func commandBMap(name string)error{
 func commandExplore(name string)error{
 	fmt.Printf("Exploring %s...\n",name)
 	fmt.Printf("Found Pokemon:\n")
-	pokemons, err := getPokemonsFromLocation(name)
-	if err != nil {
-		return err
-	}
-	for _,p := range pokemons.PokemonEncounters{
-		fmt.Printf("- %s\n",p.Pokemon.Name)
-	}
-
-
-
 	return fmt.Errorf("explore")
 }
 
@@ -153,18 +152,32 @@ func getLocations(mapCommand *cliCommand,cache *pokecache.Cache)(location,error)
 	
 
 }
-func getPokemonsFromLocation(area string)(pokemon,error){
+
+func getPokemonsFromLocation(area string,cache *pokecache.Cache)(pokemon,error){
 	url := fmt.Sprintf("https://pokeapi.co/api/v2/location-area/%s",area)
+
+	val, ok := cache.Get(url)
+	if ok {
+		var pokemons pokemon
+		json.Unmarshal(val,&pokemons)
+		return pokemons,nil
+	}
 	res, err := http.Get(url)
 	if err != nil {
 		return pokemon{},err
 	}
 	defer res.Body.Close()
-	var pokemons pokemon
-	decoder := json.NewDecoder(res.Body)
-	if err := decoder.Decode(&pokemons) ; err != nil {
+	data, err := io.ReadAll(res.Body)
+	if err != nil {
 		return pokemon{},err
 	}
+	cache.Add(url,data)
+	var pokemons pokemon
+	err = json.Unmarshal(data,&pokemons)
+	if err != nil {
+		return pokemon{},err
+	}
+
 	return pokemons,nil
 }
 type pokemon struct{
