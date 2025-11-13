@@ -7,7 +7,11 @@ import (
 	"io"
 	"log"
 	"net/http"
+	
 	"os"
+	"time"
+
+	"github.com/ahmedjebari022/pokedex/pokecache"
 )
 
 
@@ -15,16 +19,13 @@ func main(){
 	initCliCommands()
 	exit := false
 	scanner := bufio.NewScanner(os.Stdin)
-	
+	cache := pokecache.NewCache(5*time.Second)
+
 	for !exit {
 		fmt.Print("Pokedex >")
-		
-		
 		if !scanner.Scan(){
 			break
 		}
-
-
 		err := scanner.Err()
 		if err != nil{
 			log.Fatal(err)
@@ -34,7 +35,7 @@ func main(){
 		for key,ele := range supportedCommands{
 			for _,i := range input{
 				if i == key{
-					err = ele.callback()
+					err = ele.callback("canalave-city-area")
 					if err == nil {
 						fmt.Println("Unknown command")
 					}
@@ -43,7 +44,7 @@ func main(){
 						os.Exit(0)
 					}else if err.Error() == "map" {
 						mapCommand := supportedCommands["map"]
-						locations, err := getLocations(&mapCommand)
+						locations, err := getLocations(&mapCommand,cache)
 						if err != nil{
 							break
 						}
@@ -52,7 +53,7 @@ func main(){
 						}
 					}else if err.Error() == "bmap" {
 						bmapCommand := supportedCommands["bmap"]
-						locations, err := getLocations(&bmapCommand)
+						locations, err := getLocations(&bmapCommand,cache)
 						if err != nil{
 							fmt.Printf("%v\n",err)
 							break
@@ -70,25 +71,41 @@ func main(){
 	} 
 }
 
-func commandExit()error{
+func commandExit(name string)error{
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	return fmt.Errorf("exit")
 }
-func commandHelp()error{
+func commandHelp(name string)error{
 	fmt.Printf("\nWelcome to the Pokedex! \nUsage:\n\n")
 	for _,v := range supportedCommands{
 		fmt.Printf("%s: %s\n",v.name,v.description)
 	}
 	return fmt.Errorf("help")
 }
-func commandMap()error{
+func commandMap(name string)error{
 	return fmt.Errorf("map")
 }
-func commandBMap()error{
+func commandBMap(name string)error{
 	return fmt.Errorf("bmap")
 }
+func commandExplore(name string)error{
+	fmt.Printf("Exploring %s...\n",name)
+	fmt.Printf("Found Pokemon:\n")
+	pokemons, err := getPokemonsFromLocation(name)
+	if err != nil {
+		return err
+	}
+	for _,p := range pokemons.PokemonEncounters{
+		fmt.Printf("- %s\n",p.Pokemon.Name)
+	}
 
-func getLocations(mapCommand *cliCommand)(location,error){
+
+
+	return fmt.Errorf("explore")
+}
+
+
+func getLocations(mapCommand *cliCommand,cache *pokecache.Cache)(location,error){
 	url := ""
 	
 	switch mapCommand.name {
@@ -98,7 +115,18 @@ func getLocations(mapCommand *cliCommand)(location,error){
 			if mapCommand.conf.Previous == ""{return location{},fmt.Errorf("you're on the first page")}
 			url = mapCommand.conf.Previous
 	}
+	fmt.Println(url)
 
+	if cachedLocations, ok := cache.Get(url); ok {
+		var locations location
+		err := json.Unmarshal(cachedLocations,&locations)
+		if err != nil{
+			return location{}, err
+		}
+		mapCommand.conf.Next = locations.Next
+		mapCommand.conf.Previous = locations.Previous
+		return locations,nil
+	}
 	res, err := http.Get(url)
 	if err != nil{
 		return location{}, err
@@ -106,6 +134,11 @@ func getLocations(mapCommand *cliCommand)(location,error){
 	defer res.Body.Close()
 
 	data, err := io.ReadAll(res.Body)
+	
+	cache.Add(url,data)
+	
+	
+
 	if err != nil {
 		return location{}, err
 	}
@@ -120,6 +153,32 @@ func getLocations(mapCommand *cliCommand)(location,error){
 	
 
 }
+func getPokemonsFromLocation(area string)(pokemon,error){
+	url := fmt.Sprintf("https://pokeapi.co/api/v2/location-area/%s",area)
+	res, err := http.Get(url)
+	if err != nil {
+		return pokemon{},err
+	}
+	defer res.Body.Close()
+	var pokemons pokemon
+	decoder := json.NewDecoder(res.Body)
+	if err := decoder.Decode(&pokemons) ; err != nil {
+		return pokemon{},err
+	}
+	return pokemons,nil
+}
+type pokemon struct{
+	PokemonEncounters []struct {
+		Pokemon struct{
+			Name string `json:"name"`
+			URL string `json:"url"`
+		} `json:"pokemon"`
+	} `json:"pokemon_encounters"`
+
+}
+
+
+
 type location struct{
 	Count 	int `json:"count"`
 	Next 	string `json:"next"`
@@ -134,7 +193,7 @@ type location struct{
 type cliCommand struct{
 	name 		string
 	description string
-	callback 	func() error
+	callback 	func(string) error
 	conf		*config
 }
 
@@ -150,7 +209,7 @@ var supportedCommands = make(map[string]cliCommand)
 func initCliCommands(){
 
 	initConfig := &config{
-		Next :"https://pokeapi.co/api/v2/location-area/?limit=20&offset=0",
+		Next :"https://pokeapi.co/api/v2/location-area/?offset=0&limit=20",
 		Previous: "",
 	}
 
@@ -158,6 +217,6 @@ func initCliCommands(){
 	supportedCommands["exit"] = cliCommand{name:"exit",description:"Exit the Pokedex",callback:commandExit}
 	supportedCommands["map"] = cliCommand{name:"map",description:"Display the next 20 locations",callback:commandMap,conf:initConfig}
 	supportedCommands["bmap"] = cliCommand{name:"bmap",description:"Display the previous 20 locations",callback:commandBMap,conf:initConfig}
-
+	supportedCommands["explore"] = cliCommand{name:"explore",description:"Display pokemons of an area",callback:commandExplore} 
 }
 
