@@ -80,7 +80,8 @@ func main(){
 					if err != nil {
 						break
 					}
-					
+				}else if err.Error() == "pokedex"{
+					getAllPokemons(pokeMap)
 				}
 			}
 		}
@@ -119,6 +120,10 @@ func commandCatch(name string)error{
 }
 func commandInspect(name string)error{
 	return fmt.Errorf("inspect")
+}
+func commandPokedex(name string)error{
+	fmt.Printf("Your Pokedex:\n")
+	return fmt.Errorf("pokedex")
 }
 
 
@@ -253,5 +258,6 @@ func initCliCommands(){
 	supportedCommands["explore"] = cliCommand{name:"explore",description:"Display pokemons of an area",callback:commandExplore} 
 	supportedCommands["catch"] = cliCommand{name:"catch",description:"Catching a pokemon",callback:commandCatch}
 	supportedCommands["inspect"] = cliCommand{name:"inspect",description:"Inspect the stats of a pokemon",callback:commandInspect}
+	supportedCommands["pokedex"] = cliCommand{name:"pokedex",description:"Display the names of all pokemons you caught",callback:commandPokedex}
 }
 

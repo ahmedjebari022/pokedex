@@ -82,5 +82,10 @@ func getPokemonInfo(name string,pokemonMap map[string]pokemonInfo)error{
 	}
 	fmt.Printf("you have not caught that pokemon\n")
 	return nil
+}
 
+func getAllPokemons(pokeMap map[string]pokemonInfo){
+	for _,v := range pokeMap{
+		fmt.Printf("-%s\n",v.Name)
+	}
 }
